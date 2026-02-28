@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import type { GameSession } from '../types/index.js';
 
 /**
@@ -23,7 +23,7 @@ export class RedisCache {
         maxRetriesPerRequest: 1,
       });
 
-      this.client.on('error', (err) => {
+      this.client.on('error', (err: Error) => {
         // Log but do NOT crash — cache is best-effort
         console.warn('[Redis] Connection error:', err.message);
       });

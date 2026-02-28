@@ -58,7 +58,7 @@ async function buildApp() {
 
   // ─── Auth Service (needs jwt.sign — registered after jwt plugin) ─────────────
   const authService = new AuthService(db, playerRepo, (payload) =>
-    app.jwt.sign(payload as Record<string, unknown>),
+    Promise.resolve(app.jwt.sign(payload as Record<string, unknown>)),
   );
 
   // ─── Routes ──────────────────────────────────────────────────────────────────
