@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-correct: #538d4e;
+  --color-present: #b59f3b;
+  --color-absent: #3a3a3c;
+}
+
+html,
+body {
+  background-color: #121213;
+  color: #ffffff;
+  font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+/* Prevent layout shift on mobile when keyboard appears */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@layer utilities {
+  .text-correct { color: var(--color-correct); }
+  .bg-correct   { background-color: var(--color-correct); }
+  .border-correct { border-color: var(--color-correct); }
+
+  .text-present { color: var(--color-present); }
+  .bg-present   { background-color: var(--color-present); }
+  .border-present { border-color: var(--color-present); }
+
+  .text-absent  { color: var(--color-absent); }
+  .bg-absent    { background-color: var(--color-absent); }
+  .border-absent  { border-color: var(--color-absent); }
+}
