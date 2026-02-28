@@ -1,55 +1,27 @@
+import axios, { AxiosError } from 'axios';
 import type { GameTodayResponse, GuessResponse, StatsResponse } from '@/types';
 import { getOrCreatePlayerId, getStoredToken } from './playerIdentity';
 
-const BASE_URL = '/api';
+const client = axios.create({ baseURL: '/api' });
 
-function buildHeaders(): HeadersInit {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
+client.interceptors.request.use((config) => {
   const token = getStoredToken();
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    config.headers['Authorization'] = `Bearer ${token}`;
   } else {
     const playerId = getOrCreatePlayerId();
     if (playerId) {
-      headers['x-player-id'] = playerId;
+      config.headers['x-player-id'] = playerId;
     }
   }
+  return config;
+});
 
-  return headers;
-}
-
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new ApiError(res.status, body.error ?? 'Unknown error');
+function extractMessage(err: unknown): string {
+  if (err instanceof AxiosError && err.response?.data?.error) {
+    return err.response.data.error as string;
   }
-  return res.json() as Promise<T>;
-}
-
-export async function fetchTodayGame(): Promise<GameTodayResponse> {
-  const res = await fetch(`${BASE_URL}/game/today`, {
-    headers: buildHeaders(),
-  });
-  return handleResponse<GameTodayResponse>(res);
-}
-
-export async function submitGuess(guess: string): Promise<GuessResponse> {
-  const res = await fetch(`${BASE_URL}/game/guess`, {
-    method: 'POST',
-    headers: buildHeaders(),
-    body: JSON.stringify({ guess: guess.toLowerCase() }),
-  });
-  return handleResponse<GuessResponse>(res);
-}
-
-export async function fetchStats(): Promise<StatsResponse> {
-  const res = await fetch(`${BASE_URL}/user/stats`, {
-    headers: buildHeaders(),
-  });
-  return handleResponse<StatsResponse>(res);
+  return 'Unknown error';
 }
 
 export class ApiError extends Error {
@@ -60,4 +32,42 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+function wrapAxios<T>(promise: Promise<{ data: T }>): Promise<T> {
+  return promise.then((r) => r.data).catch((err: unknown) => {
+    const status = err instanceof AxiosError ? (err.response?.status ?? 0) : 0;
+    throw new ApiError(status, extractMessage(err));
+  });
+}
+
+export async function fetchTodayGame(): Promise<GameTodayResponse> {
+  return wrapAxios(client.get<GameTodayResponse>('/game/today'));
+}
+
+export async function submitGuess(guess: string): Promise<GuessResponse> {
+  return wrapAxios(client.post<GuessResponse>('/game/guess', { guess: guess.toLowerCase() }));
+}
+
+export async function fetchStats(): Promise<StatsResponse> {
+  return wrapAxios(client.get<StatsResponse>('/user/stats'));
+}
+
+export interface AuthResponse {
+  token: string;
+  player_id: string;
+}
+
+export async function login(
+  email: string,
+  password: string,
+  guest_player_id?: string,
+): Promise<AuthResponse> {
+  return wrapAxios(
+    client.post<AuthResponse>('/auth/login', { email, password, guest_player_id }),
+  );
+}
+
+export async function register(email: string, password: string): Promise<AuthResponse> {
+  return wrapAxios(client.post<AuthResponse>('/auth/register', { email, password }));
 }

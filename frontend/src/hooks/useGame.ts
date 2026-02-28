@@ -85,8 +85,8 @@ function reducer(state: GameState, action: Action): GameState {
 export function useGame() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Load game on mount
-  useEffect(() => {
+  const loadGame = useCallback(() => {
+    dispatch({ type: 'SET_LOADING', loading: true });
     fetchTodayGame()
       .then((data) => {
         dispatch({
@@ -104,6 +104,11 @@ export function useGame() {
         dispatch({ type: 'SET_ERROR', message: 'Failed to load game. Please refresh.' });
       });
   }, []);
+
+  // Load game on mount
+  useEffect(() => {
+    loadGame();
+  }, [loadGame]);
 
   // Keyboard listener
   useEffect(() => {
@@ -159,5 +164,5 @@ export function useGame() {
     dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
-  return { state, handleKeyPress, clearError };
+  return { state, handleKeyPress, clearError, reload: loadGame };
 }
