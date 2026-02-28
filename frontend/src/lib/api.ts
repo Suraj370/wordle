@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 import type { GameTodayResponse, GuessResponse, StatsResponse } from '@/types';
 import { getOrCreatePlayerId, getStoredToken } from './playerIdentity';
 
-const client = axios.create({ baseURL: '/api' });
+const client = axios.create({ baseURL: process.env.NEXT_PUBLIC_API_URL });
 
 client.interceptors.request.use((config) => {
   const token = getStoredToken();
