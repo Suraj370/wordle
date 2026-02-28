@@ -50,6 +50,7 @@ export interface DailyWord {
 }
 
 export interface GameSession {
+  gameId: string;
   guesses: GuessRecord[];
   status: GameStatus;
   attempts: number;

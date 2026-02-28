@@ -32,13 +32,10 @@ export class GameService {
     const date = getTodayUTC();
     const daily = this.wordService.getTodayWord();
 
-    // 1. Check Redis first
+    // 1. Check Redis first — full cache hit, no DB needed
     const cached = await this.cache.getGameSession(playerId, date);
     if (cached) {
-      // Ensure player record exists (guest may not be in DB yet)
-      await this.ensurePlayer(playerId);
-      const dbGame = await this.gameRepo.findByPlayerAndDate(playerId, date);
-      return this.toResponse(dbGame?.id ?? '', date, cached);
+      return this.toResponse(cached.gameId, date, cached);
     }
 
     // 2. Cache miss → check Postgres
@@ -52,6 +49,7 @@ export class GameService {
 
     // 3. Hydrate Redis from Postgres
     const session: GameSession = {
+      gameId: game.id,
       guesses: game.guesses,
       status: game.status,
       attempts: game.attempt_count,
@@ -78,7 +76,7 @@ export class GameService {
       if (!game) {
         throw new GameNotFoundError('No active game found for today. Call GET /game/today first.');
       }
-      session = { guesses: game.guesses, status: game.status, attempts: game.attempt_count };
+      session = { gameId: game.id, guesses: game.guesses, status: game.status, attempts: game.attempt_count };
     }
 
     if (session.status !== 'playing') {
@@ -99,19 +97,15 @@ export class GameService {
 
     const updatedGuesses = [...session.guesses, { word: normalized, evaluation }];
     const updatedSession: GameSession = {
+      gameId: session.gameId,
       guesses: updatedGuesses,
       status: newStatus,
       attempts: newAttempts,
     };
 
-    // Update Redis immediately (synchronous for consistency within the request)
+    // Write-through: update Redis and Postgres
     await this.cache.setGameSession(playerId, date, updatedSession);
-
-    // Persist to Postgres — always (we want durability on every guess)
-    const game = await this.gameRepo.findByPlayerAndDate(playerId, date);
-    if (game) {
-      await this.gameRepo.updateGuesses(game.id, updatedGuesses, newStatus, newAttempts);
-    }
+    await this.gameRepo.updateGuesses(session.gameId, updatedGuesses, newStatus, newAttempts);
 
     // Update stats when game is over
     if (newStatus !== 'playing') {
