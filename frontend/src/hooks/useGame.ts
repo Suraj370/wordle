@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { fetchTodayGame, submitGuess, ApiError } from '@/lib/api';
 import type { GameState, GuessRecord } from '@/types';
 import { MAX_ATTEMPTS, WORD_LENGTH } from '@/types';
@@ -84,6 +84,7 @@ function reducer(state: GameState, action: Action): GameState {
 
 export function useGame() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const submittingRef = useRef(false);
 
   const loadGame = useCallback(() => {
     dispatch({ type: 'SET_LOADING', loading: true });
@@ -135,6 +136,7 @@ export function useGame() {
   }, [state.currentInput, state.status]);
 
   async function handleSubmit() {
+    if (submittingRef.current) return;
     if (state.currentInput.length !== WORD_LENGTH) {
       dispatch({ type: 'SET_SHAKING', shaking: true });
       dispatch({ type: 'SET_ERROR', message: 'Word must be 5 letters.' });
@@ -143,6 +145,7 @@ export function useGame() {
     }
     if (state.status !== 'playing') return;
 
+    submittingRef.current = true;
     dispatch({ type: 'SET_LOADING', loading: true });
     try {
       const result = await submitGuess(state.currentInput);
@@ -157,6 +160,8 @@ export function useGame() {
       dispatch({ type: 'SET_SHAKING', shaking: true });
       dispatch({ type: 'SET_ERROR', message });
       setTimeout(() => dispatch({ type: 'SET_SHAKING', shaking: false }), 600);
+    } finally {
+      submittingRef.current = false;
     }
   }
 
